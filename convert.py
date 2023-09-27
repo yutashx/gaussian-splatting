@@ -37,15 +37,18 @@ if not args.skip_matching:
         --image_path " + args.source_path + "/input \
         --ImageReader.single_camera 1 \
         --ImageReader.camera_model " + args.camera + " \
+        --SiftExtraction.estimate_affine_shape=true  \
+        --SiftExtraction.domain_size_pooling=true  \
         --SiftExtraction.use_gpu " + str(use_gpu)
     exit_code = os.system(feat_extracton_cmd)
     if exit_code != 0:
         logging.error(f"Feature extraction failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
-    ## Feature matching
+    ## Feasture matching
     feat_matching_cmd = colmap_command + " exhaustive_matcher \
         --database_path " + args.source_path + "/distorted/database.db \
+        --SiftMatching.guided_matching=true \
         --SiftMatching.use_gpu " + str(use_gpu)
     exit_code = os.system(feat_matching_cmd)
     if exit_code != 0:
@@ -58,12 +61,27 @@ if not args.skip_matching:
     mapper_cmd = (colmap_command + " mapper \
         --database_path " + args.source_path + "/distorted/database.db \
         --image_path "  + args.source_path + "/input \
-        --output_path "  + args.source_path + "/distorted/sparse \
-        --Mapper.ba_global_function_tolerance=0.000001")
+        --output_path "  + args.source_path + "/distorted/sparse")
     exit_code = os.system(mapper_cmd)
     if exit_code != 0:
         logging.error(f"Mapper failed with code {exit_code}. Exiting.")
         exit(exit_code)
+
+    bundle_cmd = f"colmap bundle_adjuster --input_path {args.source_path}/distorted/sparse/0 --output_path {args.source_path}/distorted/sparse/0 --BundleAdjustment.refine_principal_point 1"
+    exit_code = os.system(bundle_cmd)
+    if exit_code != 0:
+        logging.error(f"Mapper failed with code {exit_code}. Exiting.")
+        exit(exit_code)
+
+    # colmap text is not supported yes
+    """
+    os.mkdir(f"{args.source_path}/colmap_text/")
+    model_conv_cmd = f"colmap model_converter --input_path {args.source_path}/distorted/sparse/0 --output_path {args.source_path}/colmap_text/colmap_text --output_type TXT"
+    exit_code = os.system(model_conv_cmd)
+    if exit_code != 0:
+        logging.error(f"Mapper failed with code {exit_code}. Exiting.")
+        exit(exit_code)
+    """
 
 ### Image undistortion
 ## We need to undistort our images into ideal pinhole intrinsics.
